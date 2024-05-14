@@ -1,0 +1,5 @@
+model_path: "meta-llama/Meta-Llama-3-8B-Instruct"
+model_type: 'llama3'
+hf_token: "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"
+max_tokens: 256
+embeddings_path: "BAAI/bge-m3"
