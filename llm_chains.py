@@ -30,28 +30,45 @@ def create_llm(
         #quantized model
         model = AutoModelForCausalLM.from_pretrained(
                 model_path,
+                torch_dtype=torch.float16,
+                device_map="auto",
                 quantization_config=bnb_config,
                 token = hf_token
-        )
+        ).eval()
 
         #tokenizer
+        use_fast_tokenizer = "LlamaForCausalLM" not in model.config.architectures
+
         tokenizer = AutoTokenizer.from_pretrained(
                 model_path,
-                token = hf_token
+                token = hf_token,
+                use_fast = use_fast_tokenizer,
+                padding_side="left", 
+                legacy=False,
         )
 
-        text_pipeline = pipeline(
-                model=model,
-                tokenizer=tokenizer,
-                task="text-generation",
-                do_sample = True,
-                temperature = 0.2,
-                repetition_penalty=1.1,
-                return_full_text = False,
-                max_new_tokens = max_tokens
+
+
+        terminators = [
+            tokenizer.eos_token_id,
+            tokenizer.convert_tokens_to_ids("<|eot_id|>")
+        ]
+
+        vanilla_llama3 = pipeline(
+            model=model,
+            tokenizer=tokenizer,
+            max_new_tokens=max_tokens,
+            task='text-generation',
+            eos_token_id=terminators,
+            do_sample=True,
+            temperature=0.6,
+            top_p=0.9,
+            return_full_text=False
+            
+
         )
 
-        llama_llm = HuggingFacePipeline(pipeline=text_pipeline)
+        llama_llm = HuggingFacePipeline(pipeline=vanilla_llama3)
 
 
 
@@ -76,24 +93,26 @@ def create_chat_memory(chat_history):
 
 def create_prompt_from_template(template):
     prompt = PromptTemplate(
-        input_variables=["history","question"],
+        input_variables=["question"],
         template=template
     )
 
     return prompt
 
-def create_llm_chain(llm,chat_prompt):
-    return LLMChain(llm=llm,prompt=chat_prompt)
+def create_llm_chain(llm,chat_prompt,memory):
+    return LLMChain(llm=llm,prompt=chat_prompt,memory=memory)
 
-def load_normal_chain():
-    return chatChain()
+def load_normal_chain(chat_history):
+    return chatChain(chat_history)
 
 class chatChain:
-    def __init__(self):
+    def __init__(self,chat_history):
+        self.memory = create_chat_memory(chat_history)
         llm = create_llm()
         chat_prompt = create_prompt_from_template(llama3_prompt_msg)
-        self.llm_chain = create_llm_chain(llm,chat_prompt)
+        self.llm_chain = create_llm_chain(llm,chat_prompt,self.memory)
 
-    def run(self,user_input,chat_history):
-        return self.llm_chain.invoke(input={"history":"Hi ",
-                                            "question":user_input})
+    def run(self,user_input,history):
+        response = self.llm_chain.invoke({"history":history,
+                                          "question":user_input})['text']
+        return response
