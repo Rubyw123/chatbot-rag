@@ -88,12 +88,13 @@ def create_chat_memory(chat_history):
     return ConversationBufferWindowMemory(
         memory_key="history",
         chat_memory=chat_history,
+        input_key="question",
         k=3
         )
 
 def create_prompt_from_template(template):
     prompt = PromptTemplate(
-        input_variables=["question"],
+        input_variables=["question","context",],
         template=template
     )
 
@@ -123,8 +124,8 @@ class chatChain:
         chat_prompt = create_prompt_from_template(llama3_prompt_msg)
         self.llm_chain = create_llm_chain(llm,chat_prompt,self.memory)
 
-    def run(self,user_input,history,knowledge=None):
+    def run(self,user_input,history,knowledge=""):
         response = self.llm_chain.invoke({"history":history,
-                                          "knowledge":knowledge,
+                                          "context":knowledge,
                                           "question":user_input})['text']
         return response

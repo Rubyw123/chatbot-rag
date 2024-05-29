@@ -5,6 +5,7 @@ from streamlit_mic_recorder import mic_recorder
 from utils import save_chat_history_json,get_timestamp,load_chat_history_json
 from audio import decode_audio
 from pdf import add_documents_to_db
+from html_templates import css
 import yaml
 import os
 with open("config.yaml","r") as f:
@@ -43,7 +44,9 @@ def track_index():
 def main():
     # App title
     st.title("Local Chat App")
-    chat_container=st.container()   
+    #st.write(css,unsafe_allow_html=True)
+    chat_container=st.container()
+    input_container = st._bottom.container()
 
     # Sidebar
     st.sidebar.title("Chat Sessions")
@@ -70,19 +73,20 @@ def main():
     chat_history = StreamlitChatMessageHistory(key="history")
     llm_chain = load_chain(chat_history)
 
-    # User input handling
-    user_input = st.chat_input("Type your message here",key="user_input")
-
-    # Voice recording
-    voice_rec_col,send_col = st.columns(2)
-    with voice_rec_col:
-        record_audio = mic_recorder(
-                start_prompt="Record Audio",
-                stop_prompt="Stop recording",
-                just_once=True
-            )
-
-    audio_file = st.sidebar.file_uploader("Upload an audio file",type=["wav","mp3","ogg","m4a"])
+    with input_container:
+        send_col,voice_rec_col = st.columns([0.8,0.2],gap="medium")
+        with send_col:
+            # User input handling
+            user_input = st.chat_input("Type your message here",key="user_input")
+        # Voice recording
+        with voice_rec_col:
+            record_audio = mic_recorder(
+                    start_prompt="Record",
+                    stop_prompt="Stop",
+                    just_once=True
+                )
+    
+    audio_file = st.sidebar.file_uploader("Upload an audio file",type=["wav","mp3","ogg"])
     pdf_file = st.sidebar.file_uploader("Upload a pdf file",accept_multiple_files=True, key = "pdf_upload", type = ["pdf"])
 
 
@@ -90,8 +94,6 @@ def main():
         with st.spinner("Processing pdf ..."):
             add_documents_to_db(pdf_file)
         
-        
-
     if audio_file:
         transcript = decode_audio(audio_file.getvalue())
         llm_chain.run(" Summarize the following: " + transcript,chat_history)
@@ -107,20 +109,26 @@ def main():
             for message in chat_history.messages:
                 st.chat_message(message.type).write(message.content)
 
-    # LLM Chain invoke
+    
+
+        # LLM Chain invoke
     if user_input:
         if not pdf_file:
-            st.chat_message("user").write(user_input)
-            #print(f"user_input: {user_input}")
-            #print(f"chat_history: {chat_history}")
-            llm_response = llm_chain.run(user_input=user_input,history=chat_history)
-            st.chat_message("ai").write(llm_response)
-            user_input = None
+                #print(f"user_input: {user_input}")
+                #print(f"chat_history: {chat_history}")
+                llm_response = llm_chain.run(user_input,chat_history)
+
         else:
-            vector_db = load_vectordb(create_embeddings())
-            relevant_docs = [doc.page_content for doc in vector_db.similarity_search(query=user_input,k=5)]
-            context += "".join()
-            llm_chain.run(user_input,chat_history,relevant_docs)
+                vector_db = load_vectordb(create_embeddings())
+                relevant_docs = [doc.page_content for doc in vector_db.similarity_search(query=user_input,k=5)]
+                context=""
+                context +="".join([f"Information::: \n"+ doc for doc in relevant_docs])
+                llm_response = llm_chain.run(user_input,chat_history,context)
+            
+        st.chat_message("user").write(user_input)
+        st.chat_message("ai").write(llm_response)
+        user_input = None
+
     # Save chat history
     save_chat_history() 
 

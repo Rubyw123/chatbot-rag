@@ -31,4 +31,6 @@ def add_documents_to_db(pdfs_bytes):
     documents = get_document_chunks(texts)
     vector_db = load_vectordb(create_embeddings())
 
+    #clear last added document
+
     vector_db.add_documents(documents)
