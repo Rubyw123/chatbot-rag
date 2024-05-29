@@ -6,6 +6,9 @@ You are an AI chatbot having a conversation with a user. Answer the user's quest
 <|eot_id|><|start_header_id|>user<|end_header_id|>
 
 history:{history}
+knowledge:{knowledge}
+---
+If the knowledge not empty, please use the information contained in the context to answer.
 question: {question}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 
 """

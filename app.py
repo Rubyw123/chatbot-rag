@@ -1,9 +1,10 @@
 import streamlit as st
-from llm_chains import load_normal_chain, chatChain
+from llm_chains import load_normal_chain, chatChain,load_vectordb,create_embeddings
 from langchain.memory import StreamlitChatMessageHistory
 from streamlit_mic_recorder import mic_recorder
 from utils import save_chat_history_json,get_timestamp,load_chat_history_json
 from audio import decode_audio
+from pdf import add_documents_to_db
 import yaml
 import os
 with open("config.yaml","r") as f:
@@ -82,6 +83,14 @@ def main():
             )
 
     audio_file = st.sidebar.file_uploader("Upload an audio file",type=["wav","mp3","ogg","m4a"])
+    pdf_file = st.sidebar.file_uploader("Upload a pdf file",accept_multiple_files=True, key = "pdf_upload", type = ["pdf"])
+
+
+    if pdf_file:
+        with st.spinner("Processing pdf ..."):
+            add_documents_to_db(pdf_file)
+        
+        
 
     if audio_file:
         transcript = decode_audio(audio_file.getvalue())
@@ -99,15 +108,19 @@ def main():
                 st.chat_message(message.type).write(message.content)
 
     # LLM Chain invoke
-    with chat_container:
-        if user_input:
+    if user_input:
+        if not pdf_file:
             st.chat_message("user").write(user_input)
             #print(f"user_input: {user_input}")
             #print(f"chat_history: {chat_history}")
             llm_response = llm_chain.run(user_input=user_input,history=chat_history)
             st.chat_message("ai").write(llm_response)
             user_input = None
-    
+        else:
+            vector_db = load_vectordb(create_embeddings())
+            relevant_docs = [doc.page_content for doc in vector_db.similarity_search(query=user_input,k=5)]
+            context += "".join()
+            llm_chain.run(user_input,chat_history,relevant_docs)
     # Save chat history
     save_chat_history() 
 
