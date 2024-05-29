@@ -2,12 +2,13 @@
 An efficient and reliable chatbot using HuggingFace's open-source models (ex. Llama 3 from Meta). Keeping everything local and secured.
 
 <div align="center">
-  <img src="pics/picture1.png" width="65%" height="65%"/>
+  <img src="pics/picture3.png" width="65%" height="65%"/>
 </div>
 <br>
 
 ### Features
-- Saving and loading chat history from side bar
+- Enable pdf files uploading and analysis
+- Audio input(upload) for chatting
 - Intergrating with various open source models (currently supports llama 3)
 - Interactive UI for chatting!
 
