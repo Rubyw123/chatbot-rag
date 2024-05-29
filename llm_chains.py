@@ -6,7 +6,7 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain.prompts import PromptTemplate
 from langchain.llms import ctransformers
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
-from langchain.vectorstores import chroma
+from langchain_community.vectorstores import Chroma
 import torch
 from transformers import AutoTokenizer, pipeline,AutoModelForCausalLM, BitsAndBytesConfig
 import chromadb
@@ -88,12 +88,13 @@ def create_chat_memory(chat_history):
     return ConversationBufferWindowMemory(
         memory_key="history",
         chat_memory=chat_history,
+        input_key="question",
         k=3
         )
 
 def create_prompt_from_template(template):
     prompt = PromptTemplate(
-        input_variables=["question"],
+        input_variables=["question","context",],
         template=template
     )
 
@@ -105,6 +106,17 @@ def create_llm_chain(llm,chat_prompt,memory):
 def load_normal_chain(chat_history):
     return chatChain(chat_history)
 
+def load_vectordb(embeddings):
+    persistent_client = chromadb.PersistentClient("chroma_db")
+
+    langchain_chroma = Chroma(
+        client = persistent_client,
+        collection_name = "collection_name",
+        embedding_function = embeddings,
+    )
+
+    return langchain_chroma
+
 class chatChain:
     def __init__(self,chat_history):
         self.memory = create_chat_memory(chat_history)
@@ -112,7 +124,8 @@ class chatChain:
         chat_prompt = create_prompt_from_template(llama3_prompt_msg)
         self.llm_chain = create_llm_chain(llm,chat_prompt,self.memory)
 
-    def run(self,user_input,history):
+    def run(self,user_input,history,knowledge=""):
         response = self.llm_chain.invoke({"history":history,
+                                          "context":knowledge,
                                           "question":user_input})['text']
         return response
